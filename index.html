@@ -195,6 +195,8 @@
           );
         }
 
+        const originalBtnText = btnMulai.innerText;
+
         btnMulai.disabled = true;
         btnMulai.innerText = "Memvalidasi...";
 
@@ -209,20 +211,39 @@
         });
 
         try {
-          // --- PROTEKSI SERVER-SIDE CHECK ---
-          // Cek status is_active langsung ke database sebelum lanjut
+          // --- PROTEKSI DOUBLE CHECK: STATUS AKTIF & JADWAL ---
           const snapSet = await getDoc(doc(db, "pengaturan", "config_utama"));
           const config = snapSet.data();
 
+          // Ambil waktu sekarang dan waktu mulai dari database
+          const sekarang = new Date().getTime();
+          const waktuMulai = new Date(config.waktu_mulai).getTime();
+
+          // 1. Cek Apakah Admin Menutup Akses Secara Manual
           if (config && config.is_active === false) {
             Swal.close();
             await Swal.fire({
               icon: "error",
               title: "Akses Ditutup",
-              text: "Mohon maaf, admin baru saja menutup akses ujian ini. Silakan hubungi admin.",
+              text: "Mohon maaf, admin telah menutup akses ujian ini secara manual.",
               confirmButtonColor: "#ef4444",
             });
-            location.reload(); // Refresh untuk mengunci tombol secara visual
+            location.reload();
+            return;
+          }
+
+          // 2. Cek Apakah Waktunya Sudah Tiba (Cegah Curi Start)
+          if (sekarang < waktuMulai) {
+            Swal.close();
+            const tglTampil = config.waktu_mulai.replace("T", " ");
+            await Swal.fire({
+              icon: "warning",
+              title: "Belum Waktunya",
+              html: `Sabar ya gaess, ujian belum dimulai!<br><br>Berdasarkan jadwal, ujian baru akan dibuka pada:<br><b>${tglTampil}</b>`,
+              confirmButtonColor: "#3b82f6",
+            });
+            btnMulai.disabled = false;
+            btnMulai.innerText = originalBtnText;
             return;
           }
           // --- END PROTEKSI ---
@@ -295,11 +316,11 @@
             }
 
             btnMulai.disabled = false;
-            btnMulai.innerText = "Mulai Ujian Sekarang";
+            btnMulai.innerText = originalBtnText;
             return;
           }
 
-          // JIKA BELUM PERNAH UJIAN DAN AKSES MASIH BUKA
+          // JIKA LOLOS SEMUA VALIDASI (WAKTU COCOK & BELUM UJIAN)
           localStorage.setItem("user_nama", n);
           localStorage.setItem("user_sekolah", s);
           window.location.href = "ujian.html";
@@ -307,7 +328,7 @@
           console.error(error);
           Swal.fire("Error", "Gagal memvalidasi data siswa.", "error");
           btnMulai.disabled = false;
-          btnMulai.innerText = "Mulai Ujian Sekarang";
+          btnMulai.innerText = originalBtnText;
         }
       };
 
