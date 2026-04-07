@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login Admin - CBT Asterix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+    <div
+      class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md border border-slate-100"
+    >
+      <div class="text-center mb-8">
+        <div
+          class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-8 w-8 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
+          </svg>
+        </div>
+        <h2
+          class="text-2xl font-bold text-slate-800 tracking-tight italic uppercase"
+        >
+          Admin Login
+        </h2>
+        <p class="text-slate-500 text-sm mt-1">
+          Dashboard Management CBT Asterix
+        </p>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label
+            class="block text-xs font-bold text-slate-400 mb-2 uppercase ml-1"
+            >Username</label
+          >
+          <input
+            type="text"
+            id="admin-user"
+            placeholder="Masukkan username"
+            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          />
+        </div>
+        <div>
+          <label
+            class="block text-xs font-bold text-slate-400 mb-2 uppercase ml-1"
+            >Password</label
+          >
+          <input
+            type="password"
+            id="admin-pass"
+            placeholder="••••••••"
+            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          />
+        </div>
+        <button
+          id="btn-login"
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95 mt-2"
+        >
+          Login ke Dashboard
+        </button>
+      </div>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+      import {
+        getAuth,
+        signInWithEmailAndPassword,
+      } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDa-LaeUGH1LN2YhwkNrlagJtxywIKln-E",
+        authDomain: "pkl-cbt.firebaseapp.com",
+        projectId: "pkl-cbt",
+        storageBucket: "pkl-cbt.firebasestorage.app",
+        messagingSenderId: "1012566290145",
+        appId: "1:1012566290145:web:a6c60d5a6f9109e6fcd1a0",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+
+      document.getElementById("btn-login").onclick = async () => {
+        const username = document.getElementById("admin-user").value.trim();
+        const pass = document.getElementById("admin-pass").value;
+
+        if (!username || !pass)
+          return Swal.fire("Oops!", "Lengkapi semua field!", "warning");
+
+        const emailOtomatis = username.includes("@")
+          ? username
+          : `${username}@gmail.com`;
+
+        Swal.fire({
+          title: "Otentikasi...",
+          didOpen: () => Swal.showLoading(),
+        });
+
+        try {
+          await signInWithEmailAndPassword(auth, emailOtomatis, pass);
+          window.location.href = "admin.html"; // Lempar ke dashboard
+        } catch (error) {
+          Swal.fire("Gagal", "Username atau Password salah!", "error");
+        }
+      };
+    </script>
+  </body>
+</html>

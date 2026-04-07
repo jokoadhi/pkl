@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CBT - PKL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body class="bg-slate-50 min-h-screen">
+    <nav
+      class="bg-white border-b sticky top-0 z-50 px-6 py-4 flex justify-between items-center"
+    >
+      <div>
+        <span class="text-xs text-slate-400 block">Siswa:</span>
+        <span id="display-nama" class="font-bold text-slate-800"></span>
+      </div>
+      <div
+        id="timer"
+        class="bg-red-600 text-white px-4 py-2 rounded-lg font-mono font-bold text-xl"
+      >
+        00:00
+      </div>
+    </nav>
+
+    <main class="max-w-3xl mx-auto mt-8 p-4 pb-24">
+      <div id="loading-spinner" class="text-center py-20 text-slate-400 italic">
+        Mengunduh soal ujian...
+      </div>
+      <div id="quiz-container" class="space-y-6 hidden"></div>
+      <div id="footer-action" class="hidden mt-10 text-center">
+        <button
+          id="submit-btn"
+          class="bg-green-600 hover:bg-green-700 text-white px-12 py-4 rounded-2xl font-bold text-lg shadow-lg transition-transform active:scale-95"
+        >
+          Kirim Semua Jawaban
+        </button>
+      </div>
+    </main>
+
+    <div
+      id="anti-cheat-modal"
+      class="hidden fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm"
+    >
+      <div
+        class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-slate-200 text-center animate-in fade-in zoom-in duration-300"
+      >
+        <div
+          id="modal-icon"
+          class="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-10 w-10"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+        </div>
+        <h2
+          id="modal-title"
+          class="text-2xl font-black text-slate-800 mb-2 italic uppercase"
+        >
+          Peringatan!
+        </h2>
+        <p id="modal-msg" class="text-slate-600 mb-8 leading-relaxed">
+          Jangan meninggalkan halaman ujian!
+        </p>
+        <button
+          id="modal-btn"
+          class="w-full py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl shadow-lg shadow-red-200 transition-all active:scale-95"
+        >
+          SAYA MENGERTI
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

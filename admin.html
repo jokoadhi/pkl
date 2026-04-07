@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Admin - CBT Asterix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+      /* CSS agar halaman tidak berkedip (putih dulu sebelum dicek login) */
+      body {
+        display: none;
+      }
+
+      ::-webkit-scrollbar {
+        width: 5px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
+  </head>
+  <body class="bg-slate-100 min-h-screen">
+    <nav
+      class="bg-white shadow-sm p-4 flex justify-between items-center sticky top-0 z-50"
+    >
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-6 bg-blue-600 rounded-full"></span>
+        <h1 class="text-xl font-bold text-slate-800 tracking-tight">
+          Admin Dashboard
+        </h1>
+      </div>
+      <div class="flex items-center gap-4">
+        <span
+          id="admin-email-display"
+          class="text-xs text-slate-400 font-medium hidden md:block"
+        ></span>
+        <button
+          onclick="window.logout()"
+          class="text-red-500 font-bold hover:bg-red-50 px-4 py-2 rounded-lg transition-all border border-transparent hover:border-red-100"
+        >
+          Keluar
+        </button>
+      </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto mt-8 p-4">
+      <div class="flex flex-wrap gap-3 mb-8">
+        <button
+          id="btn-tab-soal"
+          onclick="switchTab('soal')"
+          class="px-6 py-2 bg-blue-600 text-white rounded-xl shadow-md transition-all font-bold"
+        >
+          Kelola Soal
+        </button>
+        <button
+          id="btn-tab-sekolah"
+          onclick="switchTab('sekolah')"
+          class="px-6 py-2 bg-white text-slate-600 rounded-xl shadow-sm border border-slate-200 transition-all hover:bg-slate-50"
+        >
+          Sekolah
+        </button>
+        <button
+          id="btn-tab-siswa"
+          onclick="switchTab('siswa')"
+          class="px-6 py-2 bg-white text-slate-600 rounded-xl shadow-sm border border-slate-200 transition-all hover:bg-slate-50"
+        >
+          Siswa
+        </button>
+        <button
+          id="btn-tab-hasil"
+          onclick="switchTab('hasil')"
+          class="px-6 py-2 bg-white text-slate-600 rounded-xl shadow-sm border border-slate-200 transition-all hover:bg-slate-50"
+        >
+          Hasil Ujian
+        </button>
+        <button
+          id="btn-tab-setting"
+          onclick="switchTab('setting')"
+          class="px-6 py-2 bg-white text-slate-600 rounded-xl shadow-sm border border-slate-200 transition-all hover:bg-slate-50"
+        >
+          Pengaturan
+        </button>
+      </div>
+
+      <div
+        id="tab-soal"
+        class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 w-full animate-in fade-in duration-300"
+      >
+        <h3 class="text-lg font-bold mb-4 text-slate-700">Tambah/Edit Soal</h3>
+        <div class="space-y-4 pb-8 border-b mb-8">
+          <textarea
+            id="input-pertanyaan"
+            placeholder="Tulis pertanyaan..."
+            class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+          ></textarea>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              id="opt1"
+              placeholder="Pilihan A"
+              class="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+            />
+            <input
+              type="text"
+              id="opt2"
+              placeholder="Pilihan B"
+              class="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+            />
+            <input
+              type="text"
+              id="opt3"
+              placeholder="Pilihan C"
+              class="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+            />
+            <input
+              type="text"
+              id="opt4"
+              placeholder="Pilihan D"
+              class="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+            />
+          </div>
+          <select
+            id="input-kunci"
+            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+          >
+            <option value="">-- Pilih Kunci Jawaban --</option>
+            <option value="A">Pilihan A</option>
+            <option value="B">Pilihan B</option>
+            <option value="C">Pilihan C</option>
+            <option value="D">Pilihan D</option>
+          </select>
+          <button
+            id="btn-simpan-soal"
+            class="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-xl font-bold w-full shadow-lg transition-all"
+          >
+            Simpan Soal
+          </button>
+        </div>
+        <div id="list-soal-admin" class="space-y-4"></div>
+      </div>
+
+      <div
+        id="tab-sekolah"
+        class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200 w-full animate-in fade-in duration-300"
+      >
+        <h3 class="text-lg font-bold mb-4 text-slate-700">Tambah Sekolah</h3>
+        <div class="flex flex-col md:flex-row gap-3 mb-8">
+          <input
+            type="text"
+            id="input-sekolah"
+            placeholder="Nama Sekolah..."
+            class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+          />
+          <button
+            id="btn-simpan-sekolah"
+            class="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold"
+          >
+            Tambah
+          </button>
+        </div>
+        <div
+          id="list-sekolah-admin"
+          class="grid grid-cols-1 md:grid-cols-2 gap-3"
+        ></div>
+      </div>
+
+      <div
+        id="tab-siswa"
+        class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200 w-full animate-in fade-in duration-300"
+      >
+        <h3 class="text-lg font-bold mb-4 text-slate-700">Manajemen Siswa</h3>
+        <input type="hidden" id="edit-id-siswa" value="" />
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+          <input
+            type="text"
+            id="input-nama-siswa"
+            placeholder="Nama Siswa"
+            class="p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+          />
+          <div class="flex gap-2">
+            <select
+              id="select-sekolah-siswa"
+              class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+            ></select>
+            <button
+              id="btn-simpan-siswa"
+              class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold"
+            >
+              Tambah
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="text-slate-400 text-sm uppercase">
+                <th class="py-3 px-4 border-b">Nama</th>
+                <th class="py-3 px-4 border-b">Sekolah</th>
+                <th class="py-3 px-4 border-b text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="list-siswa-admin"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div
+        id="tab-hasil"
+        class="hidden w-full min-h-[400px] animate-in fade-in duration-300"
+      >
+        <div
+          id="list-hasil"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+        ></div>
+      </div>
+
+      <div
+        id="tab-setting"
+        class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200 w-full animate-in fade-in duration-300"
+      >
+        <h3 class="text-lg font-bold mb-4 text-slate-700">Kontrol Ujian</h3>
+        <div class="max-w-md space-y-4">
+          <input
+            type="datetime-local"
+            id="set-mulai"
+            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl"
+          />
+          <input
+            type="number"
+            id="set-durasi"
+            placeholder="Durasi (Menit)"
+            class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl"
+          />
+          <button
+            id="btn-simpan-setting"
+            class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold w-full shadow-md"
+          >
+            Simpan
+          </button>
+        </div>
+        <div class="mt-10 pt-8 border-t">
+          <div
+            id="status-kontrol-container"
+            class="p-5 rounded-2xl border-2 flex flex-col md:flex-row items-center justify-between gap-4"
+          >
+            <div>
+              <p
+                id="label-status-ujian"
+                class="font-bold text-slate-800 uppercase italic"
+              >
+                Status: Memuat...
+              </p>
+              <p class="text-xs text-slate-500 mt-1">
+                Status buka/tutup akses ujian.
+              </p>
+            </div>
+            <button
+              id="btn-toggle-ujian"
+              class="w-full md:w-auto px-8 py-3 rounded-xl font-bold text-white shadow-lg active:scale-95"
+            >
+              Loading...
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="js/admin.js"></script>
+
+    <script>
+      function switchTab(tab) {
+        const tabs = ["soal", "sekolah", "siswa", "hasil", "setting"];
+        tabs.forEach((t) => {
+          const el = document.getElementById(`tab-${t}`);
+          const btn = document.getElementById(`btn-tab-${t}`);
+          if (!el || !btn) return;
+
+          if (t === tab) {
+            el.classList.remove("hidden");
+            btn.className =
+              "px-6 py-2 bg-blue-600 text-white rounded-xl shadow-md font-bold";
+
+            // Panggil Load Data
+            if (tab === "hasil") window.loadHasilUjian();
+            if (tab === "sekolah") window.loadSekolahAdmin();
+            if (tab === "siswa") window.loadSiswaAdmin();
+            if (tab === "setting") window.loadSetting();
+            if (tab === "soal") window.loadSoalAdmin();
+          } else {
+            el.classList.add("hidden");
+            btn.className =
+              "px-6 py-2 bg-white text-slate-600 rounded-xl shadow-sm border border-slate-200 transition-all hover:bg-slate-50";
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

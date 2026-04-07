@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login CBT PKL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body class="bg-slate-50 flex items-center justify-center min-h-screen p-4">
+    <div
+      class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100"
+    >
+      <div class="text-center mb-8">
+        <h2
+          class="text-2xl font-bold text-slate-800 tracking-tight text-center"
+        >
+          Portal CBT Asterix
+        </h2>
+        <p id="status-jadwal" class="text-slate-500 text-sm mt-1">
+          Memuat jadwal ujian...
+        </p>
+      </div>
+
+      <div class="space-y-5">
+        <div>
+          <label
+            class="block text-xs font-bold text-slate-400 mb-2 uppercase ml-1"
+            >Asal Sekolah</label
+          >
+          <select
+            id="sekolah"
+            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+          >
+            <option value="">-- Pilih Asal Sekolah --</option>
+          </select>
+        </div>
+
+        <div>
+          <label
+            class="block text-xs font-bold text-slate-400 mb-2 uppercase ml-1"
+            >Nama Lengkap</label
+          >
+          <select
+            id="nama"
+            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+          >
+            <option value="">-- Pilih Sekolah Terlebih Dahulu --</option>
+          </select>
+        </div>
+
+        <button
+          id="btn-mulai"
+          class="w-full bg-slate-400 text-white font-bold py-4 rounded-xl transition-all cursor-not-allowed shadow-lg"
+          disabled
+        >
+          Mohon Tunggu...
+        </button>
+        <button
+          onclick="showPanduan()"
+          class="w-full mt-4 py-3 text-slate-500 font-semibold text-sm hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          Panduan & Aturan Ujian
+        </button>
+      </div>
+    </div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+      import {
+        getFirestore,
+        collection,
+        getDocs,
+        doc,
+        getDoc,
+        query,
+        where,
+        orderBy,
+      } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDa-LaeUGH1LN2YhwkNrlagJtxywIKln-E",
+        authDomain: "pkl-cbt.firebaseapp.com",
+        projectId: "pkl-cbt",
+        storageBucket: "pkl-cbt.firebasestorage.app",
+        messagingSenderId: "1012566290145",
+        appId: "1:1012566290145:web:a6c60d5a6f9109e6fcd1a0",
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      const selSekolah = document.getElementById("sekolah");
+      const selNama = document.getElementById("nama");
+      const btnMulai = document.getElementById("btn-mulai");
+      const statusLabel = document.getElementById("status-jadwal");
+
+      async function initLogin() {
+        try {
+          const snapSekolah = await getDocs(collection(db, "daftar_sekolah"));
+          snapSekolah.forEach((d) => {
+            let o = document.createElement("option");
+            o.value = d.data().nama;
+            o.innerText = d.data().nama;
+            selSekolah.appendChild(o);
+          });
+
+          const snapSet = await getDoc(doc(db, "pengaturan", "config_utama"));
+          if (snapSet.exists()) {
+            const data = snapSet.data();
+            const mulai = new Date(data.waktu_mulai).getTime();
+            const sekarang = new Date().getTime();
+
+            if (data.is_active === false) {
+              btnMulai.disabled = true;
+              btnMulai.innerText = "UJIAN DITUTUP";
+              btnMulai.className =
+                "w-full bg-red-600 text-white font-bold py-4 rounded-xl cursor-not-allowed opacity-80 shadow-lg";
+              statusLabel.innerText = "Akses ujian ditutup oleh admin.";
+              statusLabel.className = "text-red-500 text-sm mt-1 font-bold";
+              return;
+            }
+
+            if (sekarang >= mulai) {
+              btnMulai.innerText = "Mulai Ujian Sekarang";
+              statusLabel.innerText = "Sistem ujian aktif.";
+              statusLabel.className = "text-green-600 text-sm mt-1 font-bold";
+            } else {
+              const tglTampil = data.waktu_mulai.replace("T", " ");
+              statusLabel.innerText = "Dibuka pada: " + tglTampil;
+              btnMulai.innerText = "Ujian Belum Dimulai";
+            }
+            localStorage.setItem("exam_duration", data.durasi_menit);
+          }
+        } catch (error) {
+          console.error(error);
+          statusLabel.innerText = "Gagal memuat konfigurasi server.";
+        }
+      }
+
+      selSekolah.onchange = async () => {
+        const sekolah = selSekolah.value;
+        selNama.innerHTML = '<option value="">Memuat daftar siswa...</option>';
+        if (!sekolah) {
+          selNama.innerHTML =
+            '<option value="">-- Pilih Sekolah Terlebih Dahulu --</option>';
+          return;
+        }
+        try {
+          const q = query(
+            collection(db, "daftar_siswa"),
+            where("sekolah", "==", sekolah),
+            orderBy("nama", "asc"),
+          );
+          const snapSiswa = await getDocs(q);
+          selNama.innerHTML = '<option value="">-- Pilih Nama Anda --</option>';
+          snapSiswa.forEach((d) => {
+            let o = document.createElement("option");
+            o.value = d.data().nama;
+            o.innerText = d.data().nama;
+            selNama.appendChild(o);
+          });
+          btnMulai.disabled = false;
+          btnMulai.className =
+            "w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95";
+        } catch (e) {
+          console.error(e);
+          selNama.innerHTML = '<option value="">Gagal memuat siswa</option>';
+        }
+      };
+
+      btnMulai.onclick = async () => {
+        const n = selNama.value;
+        const s = selSekolah.value;
+
+        if (!n || !s) {
+          return Swal.fire(
+            "Data Belum Lengkap",
+            "Pilih Asal Sekolah dan Nama Anda!",
+            "warning",
+          );
+        }
+
+        btnMulai.disabled = true;
+        btnMulai.innerText = "Memvalidasi...";
+
+        // Loading Swal
+        Swal.fire({
+          title: "Memvalidasi Peserta",
+          text: "Harap tunggu, sistem sedang mengecek status Anda.",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+
+        try {
+          // --- PROTEKSI SERVER-SIDE CHECK ---
+          // Cek status is_active langsung ke database sebelum lanjut
+          const snapSet = await getDoc(doc(db, "pengaturan", "config_utama"));
+          const config = snapSet.data();
+
+          if (config && config.is_active === false) {
+            Swal.close();
+            await Swal.fire({
+              icon: "error",
+              title: "Akses Ditutup",
+              text: "Mohon maaf, admin baru saja menutup akses ujian ini. Silakan hubungi admin.",
+              confirmButtonColor: "#ef4444",
+            });
+            location.reload(); // Refresh untuk mengunci tombol secara visual
+            return;
+          }
+          // --- END PROTEKSI ---
+
+          const q = query(
+            collection(db, "hasil_ujian"),
+            where("nama", "==", n),
+            where("asal_sekolah", "==", s),
+          );
+          const snap = await getDocs(q);
+          Swal.close();
+
+          if (!snap.empty) {
+            const dataLama = snap.docs[0].data();
+            const statusSeleksi = dataLama.status_seleksi || "PENDING";
+
+            // 1. CEK JIKA DIDISKUALIFIKASI (CURANG)
+            if (dataLama.status === "DISKUALIFIKASI (CURANG)") {
+              await Swal.fire({
+                icon: "error",
+                title: "Akses Ditolak",
+                text: "Nama Anda telah didiskualifikasi karena kecurangan. Anda tidak dapat mengikuti ujian kembali.",
+              });
+            }
+            // 2. CEK JIKA STATUS DITERIMA
+            else if (statusSeleksi === "DITERIMA") {
+              await Swal.fire({
+                icon: "success",
+                title: "Selamat Datang di Tim!",
+                html: `
+            <div class="text-left text-sm leading-relaxed">
+              Wah, selamat ya <b>${n}</b>!<br><br>
+              Berdasarkan hasil ujianmu, kamu dinyatakan <b class="text-green-600 text-lg">DITERIMA</b> untuk melaksanakan PKL/Prakerin di <b>PT. Asterix Inovasi Teknologi</b>.
+              <br><br>
+              Kami senang bisa membantumu belajar lebih dalam di dunia industri. Segera laporkan hasil ini ke <b>Guru Pembimbing</b> di sekolahmu dan hubungi Admin kami untuk menentukan jadwal mulai masuk.
+              <br><br>
+              Sampai bertemu di kantor gaess!
+            </div>
+          `,
+                confirmButtonColor: "#10b981",
+                confirmButtonText: "Siap, Admin!",
+              });
+            }
+            // 3. CEK JIKA STATUS DITOLAK
+            else if (statusSeleksi === "DITOLAK") {
+              await Swal.fire({
+                icon: "info",
+                title: "Hasil Seleksi Prakerin",
+                html: `
+            <div class="text-left text-sm leading-relaxed">
+              Halo <b>${n}</b>,<br><br>
+              Terima kasih sudah mengikuti ujian seleksi dan berminat untuk melaksanakan PKL di <b>PT. Asterix Inovasi Teknologi</b>.
+              <br><br>
+              Kami telah meninjau hasil ujianmu, namun mohon maaf untuk saat ini kuota peserta PKL kami sudah penuh atau hasil ujianmu <b class="text-red-600">BELUM MEMENUHI KRITERIA</b> tim teknis kami.
+              <br><br>
+              Jangan berkecil hati ya! Teruslah belajar, asah lagi kemampuan di sekolah, dan tetap semangat. Semoga sukses di tempat PKL lainnya!
+            </div>
+          `,
+                confirmButtonColor: "#ef4444",
+                confirmButtonText: "Tetap Semangat!",
+              });
+            }
+            // 4. JIKA SUDAH UJIAN TAPI BELUM ADA KEPUTUSAN (PENDING)
+            else {
+              await Swal.fire({
+                icon: "info",
+                title: "Sudah Selesai",
+                text: "Anda sudah menyelesaikan ujian. Silakan tunggu informasi selanjutnya dari Admin untuk status penerimaan PKL Anda.",
+              });
+            }
+
+            btnMulai.disabled = false;
+            btnMulai.innerText = "Mulai Ujian Sekarang";
+            return;
+          }
+
+          // JIKA BELUM PERNAH UJIAN DAN AKSES MASIH BUKA
+          localStorage.setItem("user_nama", n);
+          localStorage.setItem("user_sekolah", s);
+          window.location.href = "ujian.html";
+        } catch (error) {
+          console.error(error);
+          Swal.fire("Error", "Gagal memvalidasi data siswa.", "error");
+          btnMulai.disabled = false;
+          btnMulai.innerText = "Mulai Ujian Sekarang";
+        }
+      };
+
+      window.showPanduan = () => {
+        Swal.fire({
+          title:
+            '<span class="text-slate-800 tracking-tight">PANDUAN UJIAN CBT</span>',
+          html: `
+            <div class="text-left text-slate-600 text-sm leading-relaxed space-y-3 p-2">
+                <div class="flex gap-3">
+                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
+                    <p>Pastikan sudah membaca dan mempelajari kisi-kisi yang sudah diberikan oleh admin.</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
+                    <p>Untuk memulai ujian, pilih <b>Asal Sekolah</b> dan <b>Nama Siswa</b> yang sudah terdaftar PKL di PT. Asterix Inovasi Teknologi.</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
+                    <p>Waktu dimulainya ujian sesuai dengan indikator waktu pada form login.</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="flex-none w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-[10px] font-bold">4</span>
+                    <p>Utamakan <b>Jujur & Tidak Curang</b>, karena sistem memiliki fitur deteksi kecurangan otomatis.</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">5</span>
+                    <p>Jika ada kendala aplikasi, segera konfirmasikan ke Admin NOC.</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">6</span>
+                    <p>Selesaikan ujian tepat waktu. Sistem akan mengirim jawaban otomatis jika waktu habis.</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="flex-none w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-[10px] font-bold">7</span>
+                    <p>Status diterima atau tidak menunggu informasi resmi dari admin.</p>
+                </div>
+                <div class="flex gap-3">
+                    <span class="flex-none w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-[10px] font-bold">8</span>
+                    <p>Cek status keterimaan bisa dilakukan melalui form login dengan memilih kembali nama Anda.</p>
+                </div>
+                <p class="text-center font-bold text-blue-600 pt-4 italic">"Selamat mengerjakan gaess!"</p>
+            </div>
+        `,
+          confirmButtonText: "SAYA MENGERTI",
+          confirmButtonColor: "#3b82f6",
+          width: "500px",
+          padding: "2rem",
+          borderRadius: "2rem",
+          showClass: {
+            popup: "animate__animated animate__fadeInUp animate__faster",
+          },
+          hideClass: {
+            popup: "animate__animated animate__fadeOutDown animate__faster",
+          },
+        });
+      };
+
+      initLogin();
+    </script>
+  </body>
+</html>
