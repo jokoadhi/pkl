@@ -27,6 +27,8 @@ let jawabanSiswa = {};
 let sisaWaktu = 0;
 let isSelesai = false;
 let sedangPeringatan = false;
+const user_nama = localStorage.getItem("user_nama") || "guest";
+const cheatKey = `cheat_count_${user_nama.replace(/\s+/g, "_")}`;
 
 async function initUjian() {
   const namaSiswa = localStorage.getItem("user_nama");
@@ -80,34 +82,48 @@ async function initUjian() {
 }
 
 function initAntiCheat() {
-  let hitung = 0;
-
-  // Ambil elemen modal
   const modal = document.getElementById("anti-cheat-modal");
   const modalTitle = document.getElementById("modal-title");
   const modalMsg = document.getElementById("modal-msg");
   const modalBtn = document.getElementById("modal-btn");
 
-  const deteksiCurang = () => {
-    // Cek dulu apakah elemen modal ada di HTML untuk mencegah error 'null'
-    if (!modal || !modalTitle || !modalMsg || !modalBtn) {
-      console.error("Elemen Modal Anti-Cheat tidak ditemukan di HTML!");
-      return;
-    }
+  // Ambil data pelanggaran dari localStorage (agar tetap ada setelah refresh)
+  let hitung = parseInt(localStorage.getItem(cheatKey)) || 0;
 
-    if (isSelesai || sedangPeringatan) return;
+  // Reset penanda refresh setiap kali halaman dimuat ulang
+  sessionStorage.setItem("is_refreshing", "false");
+
+  const jalankanDiskualifikasi = () => {
+    isSelesai = true;
+    modalTitle.innerText = "🚫 ANDA TERDISKUALIFIKASI";
+    modalMsg.innerText =
+      "Anda melanggar aturan sebanyak 2 kali. Anda otomatis didiskualifikasi.";
+    modalBtn.innerText = "KELUAR & KIRIM LAPORAN";
+    modalBtn.className =
+      "w-full py-4 bg-red-600 text-white font-bold rounded-2xl shadow-lg";
+    modal.classList.remove("hidden");
+
+    modalBtn.onclick = async () => {
+      modalBtn.disabled = true;
+      modalBtn.innerText = "Memproses...";
+      await kirimHasil(true);
+    };
+  };
+
+  const deteksiCurang = () => {
+    // CEK: Jika sedang refresh, abaikan deteksi curang
+    const sedangRefresh = sessionStorage.getItem("is_refreshing");
+    if (isSelesai || sedangPeringatan || sedangRefresh === "true") return;
 
     hitung++;
+    localStorage.setItem(cheatKey, hitung);
 
     if (hitung === 1) {
       sedangPeringatan = true;
       modalTitle.innerText = "⚠️ PERINGATAN PERTAMA";
       modalMsg.innerText =
-        "Anda terdeteksi meninggalkan halaman ujian. Jika Anda melakukannya SEKALI LAGI, Anda akan otomatis DIDISKUALIFIKASI!";
-      modalBtn.innerText = "SAYA MENGERTI, LANJUTKAN";
-      modalBtn.className =
-        "w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg";
-
+        "Jangan tinggalkan halaman ujian! Satu kali lagi, Anda akan didiskualifikasi.";
+      modalBtn.innerText = "SAYA MENGERTI";
       modal.classList.remove("hidden");
 
       modalBtn.onclick = () => {
@@ -115,56 +131,58 @@ function initAntiCheat() {
         sedangPeringatan = false;
       };
     } else if (hitung >= 2) {
-      isSelesai = true;
-      modalTitle.innerText = "🚫 ANDA TERDISKUALIFIKASI";
-      modalMsg.innerText =
-        "Anda melanggar aturan sebanyak 2 kali. Klik tombol di bawah untuk keluar dan mengirim laporan kecurangan.";
-      modalBtn.innerText = "KELUAR DARI UJIAN";
-      modalBtn.className =
-        "w-full py-4 bg-red-600 text-white font-bold rounded-2xl shadow-lg";
-
-      modal.classList.remove("hidden");
-
-      modalBtn.onclick = async () => {
-        modalBtn.disabled = true;
-        modalBtn.innerText = "Memproses...";
-        await kirimHasil(true);
-      };
+      jalankanDiskualifikasi();
     }
   };
 
+  // Penanda saat user menekan refresh (F5 / Tombol Reload)
+  window.addEventListener("beforeunload", () => {
+    sessionStorage.setItem("is_refreshing", "true");
+  });
+
+  // Listener Pindah Tab
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
       deteksiCurang();
     }
   });
+
+  // Cek saat refresh: jika sudah 2 kali melanggar, langsung kunci
+  if (hitung >= 2) {
+    setTimeout(() => {
+      jalankanDiskualifikasi();
+    }, 500);
+  }
 }
 
 function initAntiBack() {
-  // 1. Dorong state palsu ke history browser agar tombol back tidak langsung keluar
+  // Masukkan state palsu ke history segera (Double push untuk stabilitas)
+  window.history.pushState(null, null, window.location.href);
   window.history.pushState(null, null, window.location.href);
 
   window.onpopstate = function () {
-    // Jika user menekan tombol back, dorong lagi ke state ini
+    // Jika mencoba kembali, dorong lagi ke state saat ini
     window.history.pushState(null, null, window.location.href);
 
-    // Tampilkan peringatan SweetAlert
     Swal.fire({
       icon: "warning",
-      title: "Dilarang Kembali!",
-      text: "Selesaikan ujian Anda terlebih dahulu. Tombol kembali dinonaktifkan.",
+      title: "Akses Dibatasi!",
+      text: "Tombol kembali dinonaktifkan. Selesaikan ujian Anda terlebih dahulu.",
       confirmButtonColor: "#3b82f6",
     });
   };
 
-  // 2. Peringatan saat mencoba refresh atau menutup tab (BeforeUnload)
-  window.onbeforeunload = function (e) {
+  // Tambahan: Peringatan Browser saat mencoba tutup tab/refresh
+  window.addEventListener("beforeunload", (e) => {
     if (!isSelesai) {
-      const msg = "Data ujian Anda mungkin tidak tersimpan jika Anda keluar!";
-      e.returnValue = msg;
-      return msg;
+      // Menandai sedang refresh agar anticheat tidak bertambah (digunakan di initAntiCheat)
+      sessionStorage.setItem("is_refreshing", "true");
+
+      // Standar browser untuk memunculkan dialog konfirmasi
+      e.preventDefault();
+      e.returnValue = "";
     }
-  };
+  });
 }
 
 function renderSoal() {
@@ -287,6 +305,7 @@ async function kirimHasil(isCurang = false) {
     localStorage.removeItem("user_sekolah");
     localStorage.removeItem("exam_duration");
     sessionStorage.removeItem("p_count");
+    localStorage.removeItem(cheatKey);
 
     window.location.href = "index.html";
   } catch (e) {

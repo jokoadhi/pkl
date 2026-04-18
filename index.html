@@ -109,8 +109,24 @@
       const btnMulai = document.getElementById("btn-mulai");
       const statusLabel = document.getElementById("status-jadwal");
 
+      // Variabel Global untuk menyimpan keadaan tombol asli dari server
+      let defaultBtnText = "Mulai Ujian Sekarang";
+      let defaultBtnClass =
+        "w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95";
+      let isAksesDitutup = false;
+
+      // CEK APAKAH SISWA SEDANG DALAM SESI UJIAN
+      document.addEventListener("DOMContentLoaded", () => {
+        const sedangUjian = localStorage.getItem("user_nama");
+        // Jika ada nama tersimpan, artinya dia seharusnya di halaman ujian
+        if (sedangUjian) {
+          window.location.href = "ujian.html";
+        }
+      });
+
       async function initLogin() {
         try {
+          // 1. Load Daftar Sekolah
           const snapSekolah = await getDocs(collection(db, "daftar_sekolah"));
           snapSekolah.forEach((d) => {
             let o = document.createElement("option");
@@ -119,6 +135,7 @@
             selSekolah.appendChild(o);
           });
 
+          // 2. Load Config Ujian
           const snapSet = await getDoc(doc(db, "pengaturan", "config_utama"));
           if (snapSet.exists()) {
             const data = snapSet.data();
@@ -126,24 +143,30 @@
             const sekarang = new Date().getTime();
 
             if (data.is_active === false) {
-              btnMulai.disabled = true;
-              btnMulai.innerText = "UJIAN DITUTUP";
-              btnMulai.className =
+              isAksesDitutup = true;
+              defaultBtnText = "UJIAN DITUTUP";
+              defaultBtnClass =
                 "w-full bg-red-600 text-white font-bold py-4 rounded-xl cursor-not-allowed opacity-80 shadow-lg";
               statusLabel.innerText = "Akses ujian ditutup oleh admin.";
               statusLabel.className = "text-red-500 text-sm mt-1 font-bold";
-              return;
-            }
-
-            if (sekarang >= mulai) {
-              btnMulai.innerText = "Mulai Ujian Sekarang";
+            } else if (sekarang < mulai) {
+              const tglTampil = data.waktu_mulai.replace("T", " ");
+              defaultBtnText = "Ujian Belum Dimulai";
+              defaultBtnClass =
+                "w-full bg-slate-400 text-white font-bold py-4 rounded-xl cursor-not-allowed";
+              statusLabel.innerText = "Dibuka pada: " + tglTampil;
+            } else {
+              defaultBtnText = "Mulai Ujian Sekarang";
+              defaultBtnClass =
+                "w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95";
               statusLabel.innerText = "Sistem ujian aktif.";
               statusLabel.className = "text-green-600 text-sm mt-1 font-bold";
-            } else {
-              const tglTampil = data.waktu_mulai.replace("T", " ");
-              statusLabel.innerText = "Dibuka pada: " + tglTampil;
-              btnMulai.innerText = "Ujian Belum Dimulai";
+              btnMulai.disabled = false;
             }
+
+            // Terapkan keadaan awal
+            btnMulai.innerText = defaultBtnText;
+            btnMulai.className = defaultBtnClass;
             localStorage.setItem("exam_duration", data.durasi_menit);
           }
         } catch (error) {
@@ -152,9 +175,15 @@
         }
       }
 
+      // EVENT: Saat Sekolah Dipilih
       selSekolah.onchange = async () => {
         const sekolah = selSekolah.value;
         selNama.innerHTML = '<option value="">Memuat daftar siswa...</option>';
+
+        // Reset tombol ke default setiap ganti sekolah
+        btnMulai.innerText = defaultBtnText;
+        btnMulai.className = defaultBtnClass;
+
         if (!sekolah) {
           selNama.innerHTML =
             '<option value="">-- Pilih Sekolah Terlebih Dahulu --</option>';
@@ -174,33 +203,91 @@
             o.innerText = d.data().nama;
             selNama.appendChild(o);
           });
-          btnMulai.disabled = false;
-          btnMulai.className =
-            "w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95";
         } catch (e) {
           console.error(e);
           selNama.innerHTML = '<option value="">Gagal memuat siswa</option>';
         }
       };
 
+      // EVENT: Saat Nama Dipilih (SCAN STATUS SELEKSI)
+      selNama.onchange = async () => {
+        const n = selNama.value;
+        const s = selSekolah.value;
+
+        if (!n || !s) {
+          btnMulai.innerText = defaultBtnText;
+          btnMulai.className = defaultBtnClass;
+          return;
+        }
+
+        // Jika akses ditutup admin, jangan biarkan tombol berubah warna jadi biru/hijau
+        if (isAksesDitutup) return;
+
+        btnMulai.innerText = "Mengecek status...";
+        btnMulai.disabled = true;
+
+        try {
+          const q = query(
+            collection(db, "hasil_ujian"),
+            where("nama", "==", n),
+            where("asal_sekolah", "==", s),
+          );
+          const snap = await getDocs(q);
+
+          if (!snap.empty) {
+            const data = snap.docs[0].data();
+            const statusSeleksi = data.status_seleksi || "PENDING";
+
+            if (statusSeleksi !== "PENDING") {
+              // ADMIN SUDAH KLIK TERIMA/TOLAK
+              btnMulai.innerText = "Cek Hasil Seleksi";
+              btnMulai.className =
+                "w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95";
+            } else {
+              // SUDAH UJIAN TAPI BELUM DITINJAU
+              btnMulai.innerText = "Lihat Status Ujian";
+              btnMulai.className =
+                "w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg active:scale-95";
+            }
+            btnMulai.disabled = false;
+          } else {
+            // BELUM UJIAN: Kembalikan ke teks asli dari server
+            btnMulai.innerText = defaultBtnText;
+            btnMulai.className = defaultBtnClass;
+            if (defaultBtnText === "Mulai Ujian Sekarang") {
+              btnMulai.disabled = false;
+            } else {
+              btnMulai.disabled = true;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+          btnMulai.innerText = defaultBtnText;
+          btnMulai.className = defaultBtnClass;
+        }
+      };
+
+      // EVENT: Saat Tombol Diklik
       btnMulai.onclick = async () => {
         const n = selNama.value;
         const s = selSekolah.value;
 
         if (!n || !s) {
-          return Swal.fire(
-            "Data Belum Lengkap",
-            "Pilih Asal Sekolah dan Nama Anda!",
-            "warning",
-          );
+          return Swal.fire({
+            icon: "warning",
+            title: "Data Belum Lengkap",
+            text: "Silakan pilih Asal Sekolah dan Nama Siswa terlebih dahulu untuk melanjutkan.",
+            confirmButtonColor: "#3b82f6", // Warna Biru Asterix
+            confirmButtonText: "Sip, Saya Pilih Dulu",
+          });
         }
 
-        const originalBtnText = btnMulai.innerText;
+        // Simpan teks tombol saat ini (bisa "Mulai Ujian", "Cek Hasil", atau "Lihat Status")
+        const currentBtnText = btnMulai.innerText;
 
         btnMulai.disabled = true;
         btnMulai.innerText = "Memvalidasi...";
 
-        // Loading Swal
         Swal.fire({
           title: "Memvalidasi Peserta",
           text: "Harap tunggu, sistem sedang mengecek status Anda.",
@@ -211,15 +298,12 @@
         });
 
         try {
-          // --- PROTEKSI DOUBLE CHECK: STATUS AKTIF & JADWAL ---
           const snapSet = await getDoc(doc(db, "pengaturan", "config_utama"));
           const config = snapSet.data();
-
-          // Ambil waktu sekarang dan waktu mulai dari database
           const sekarang = new Date().getTime();
           const waktuMulai = new Date(config.waktu_mulai).getTime();
 
-          // 1. Cek Apakah Admin Menutup Akses Secara Manual
+          // 1. Validasi Akses Tutup
           if (config && config.is_active === false) {
             Swal.close();
             await Swal.fire({
@@ -232,21 +316,24 @@
             return;
           }
 
-          // 2. Cek Apakah Waktunya Sudah Tiba (Cegah Curi Start)
-          if (sekarang < waktuMulai) {
+          // 2. Validasi Jadwal (Cegah Curi Start)
+          // Kecuali jika tombolnya sudah berubah jadi "Cek Hasil" (berarti dia sudah ujian)
+          if (
+            sekarang < waktuMulai &&
+            currentBtnText === "Ujian Belum Dimulai"
+          ) {
             Swal.close();
             const tglTampil = config.waktu_mulai.replace("T", " ");
             await Swal.fire({
               icon: "warning",
               title: "Belum Waktunya",
-              html: `Sabar ya gaess, ujian belum dimulai!<br><br>Berdasarkan jadwal, ujian baru akan dibuka pada:<br><b>${tglTampil}</b>`,
+              html: `Sabar ya gaess, ujian belum dimulai!<br><br>Jadwal dibuka pada:<br><b>${tglTampil}</b>`,
               confirmButtonColor: "#3b82f6",
             });
             btnMulai.disabled = false;
-            btnMulai.innerText = originalBtnText;
+            btnMulai.innerText = currentBtnText;
             return;
           }
-          // --- END PROTEKSI ---
 
           const q = query(
             collection(db, "hasil_ujian"),
@@ -260,130 +347,109 @@
             const dataLama = snap.docs[0].data();
             const statusSeleksi = dataLama.status_seleksi || "PENDING";
 
-            // 1. CEK JIKA DIDISKUALIFIKASI (CURANG)
             if (dataLama.status === "DISKUALIFIKASI (CURANG)") {
               await Swal.fire({
                 icon: "error",
                 title: "Akses Ditolak",
-                text: "Nama Anda telah didiskualifikasi karena kecurangan. Anda tidak dapat mengikuti ujian kembali.",
+                text: "Anda telah didiskualifikasi karena kecurangan.",
               });
-            }
-            // 2. CEK JIKA STATUS DITERIMA
-            else if (statusSeleksi === "DITERIMA") {
+            } else if (statusSeleksi === "DITERIMA") {
               await Swal.fire({
                 icon: "success",
                 title: "Selamat Datang di Tim!",
-                html: `
-            <div class="text-left text-sm leading-relaxed">
+                html: `<div class="text-left text-sm leading-relaxed">
+
               Wah, selamat ya <b>${n}</b>!<br><br>
+
               Berdasarkan hasil ujianmu, kamu dinyatakan <b class="text-green-600 text-lg">DITERIMA</b> untuk melaksanakan PKL/Prakerin di <b>PT. Asterix Inovasi Teknologi</b>.
+
               <br><br>
+
               Kami senang bisa membantumu belajar lebih dalam di dunia industri. Segera laporkan hasil ini ke <b>Guru Pembimbing</b> di sekolahmu dan hubungi Admin kami untuk menentukan jadwal mulai masuk.
+
               <br><br>
+
               Sampai bertemu di kantor gaess!
-            </div>
-          `,
+
+            </div>`,
                 confirmButtonColor: "#10b981",
                 confirmButtonText: "Siap, Admin!",
               });
-            }
-            // 3. CEK JIKA STATUS DITOLAK
-            else if (statusSeleksi === "DITOLAK") {
+            } else if (statusSeleksi === "DITOLAK") {
               await Swal.fire({
                 icon: "info",
-                title: "Hasil Seleksi Prakerin",
-                html: `
-            <div class="text-left text-sm leading-relaxed">
+                title: "Hasil Seleksi",
+                html: `<div class="text-left text-sm leading-relaxed">
+
               Halo <b>${n}</b>,<br><br>
+
               Terima kasih sudah mengikuti ujian seleksi dan berminat untuk melaksanakan PKL di <b>PT. Asterix Inovasi Teknologi</b>.
+
               <br><br>
+
               Kami telah meninjau hasil ujianmu, namun mohon maaf untuk saat ini kuota peserta PKL kami sudah penuh atau hasil ujianmu <b class="text-red-600">BELUM MEMENUHI KRITERIA</b> tim teknis kami.
+
               <br><br>
+
               Jangan berkecil hati ya! Teruslah belajar, asah lagi kemampuan di sekolah, dan tetap semangat. Semoga sukses di tempat PKL lainnya!
-            </div>
-          `,
+
+            </div>`,
                 confirmButtonColor: "#ef4444",
                 confirmButtonText: "Tetap Semangat!",
               });
-            }
-            // 4. JIKA SUDAH UJIAN TAPI BELUM ADA KEPUTUSAN (PENDING)
-            else {
+            } else {
               await Swal.fire({
                 icon: "info",
                 title: "Sudah Selesai",
-                text: "Anda sudah menyelesaikan ujian. Silakan tunggu informasi selanjutnya dari Admin untuk status penerimaan PKL Anda.",
+                text: "Anda sudah menyelesaikan ujian. Tunggu informasi selanjutnya dari Admin.",
               });
             }
-
             btnMulai.disabled = false;
-            btnMulai.innerText = originalBtnText;
+            btnMulai.innerText = currentBtnText;
             return;
           }
 
-          // JIKA LOLOS SEMUA VALIDASI (WAKTU COCOK & BELUM UJIAN)
+          // JIKA LOLOS SEMUA: MASUK KE UJIAN
           localStorage.setItem("user_nama", n);
           localStorage.setItem("user_sekolah", s);
           window.location.href = "ujian.html";
         } catch (error) {
           console.error(error);
-          Swal.fire("Error", "Gagal memvalidasi data siswa.", "error");
+          Swal.fire("Error", "Gagal memvalidasi data.", "error");
           btnMulai.disabled = false;
-          btnMulai.innerText = originalBtnText;
+          btnMulai.innerText = currentBtnText;
         }
       };
 
+      // Fungsi Panduan
       window.showPanduan = () => {
         Swal.fire({
           title:
             '<span class="text-slate-800 tracking-tight">PANDUAN UJIAN CBT</span>',
           html: `
-            <div class="text-left text-slate-600 text-sm leading-relaxed space-y-3 p-2">
-                <div class="flex gap-3">
-                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
-                    <p>Pastikan sudah membaca dan mempelajari kisi-kisi yang sudah diberikan oleh admin.</p>
-                </div>
-                <div class="flex gap-3">
-                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
-                    <p>Untuk memulai ujian, pilih <b>Asal Sekolah</b> dan <b>Nama Siswa</b> yang sudah terdaftar PKL di PT. Asterix Inovasi Teknologi.</p>
-                </div>
-                <div class="flex gap-3">
-                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
-                    <p>Waktu dimulainya ujian sesuai dengan indikator waktu pada form login.</p>
-                </div>
-                <div class="flex gap-3">
-                    <span class="flex-none w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-[10px] font-bold">4</span>
-                    <p>Utamakan <b>Jujur & Tidak Curang</b>, karena sistem memiliki fitur deteksi kecurangan otomatis.</p>
-                </div>
-                <div class="flex gap-3">
-                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">5</span>
-                    <p>Jika ada kendala aplikasi, segera konfirmasikan ke Admin NOC.</p>
-                </div>
-                <div class="flex gap-3">
-                    <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">6</span>
-                    <p>Selesaikan ujian tepat waktu. Sistem akan mengirim jawaban otomatis jika waktu habis.</p>
-                </div>
-                <div class="flex gap-3">
-                    <span class="flex-none w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-[10px] font-bold">7</span>
-                    <p>Status diterima atau tidak menunggu informasi resmi dari admin.</p>
-                </div>
-                <div class="flex gap-3">
-                    <span class="flex-none w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-[10px] font-bold">8</span>
-                    <p>Cek status keterimaan bisa dilakukan melalui form login dengan memilih kembali nama Anda.</p>
-                </div>
-                <p class="text-center font-bold text-blue-600 pt-4 italic">"Selamat mengerjakan gaess!"</p>
+        <div class="text-left text-slate-600 text-sm leading-relaxed space-y-3 p-2">
+            <div class="flex gap-3">
+                <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
+                <p>Pastikan sudah membaca kisi-kisi dari admin.</p>
             </div>
-        `,
+            <div class="flex gap-3">
+                <span class="flex-none w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
+                <p>Pilih Sekolah dan Nama yang sudah terdaftar di PT. Asterix Inovasi Teknologi.</p>
+            </div>
+            <div class="flex gap-3">
+                <span class="flex-none w-5 h-5 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
+                <p><b>Dilarang Curang!</b> Ada sistem deteksi otomatis.</p>
+            </div>
+            <div class="flex gap-3">
+                <span class="flex-none w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-[10px] font-bold">4</span>
+                <p>Hasil diterima/tidaknya bisa dicek langsung di halaman ini setelah ujian selesai.</p>
+            </div>
+            <p class="text-center font-bold text-blue-600 pt-4 italic">"Selamat mengerjakan gaess!"</p>
+        </div>
+      `,
           confirmButtonText: "SAYA MENGERTI",
           confirmButtonColor: "#3b82f6",
-          width: "500px",
-          padding: "2rem",
           borderRadius: "2rem",
-          showClass: {
-            popup: "animate__animated animate__fadeInUp animate__faster",
-          },
-          hideClass: {
-            popup: "animate__animated animate__fadeOutDown animate__faster",
-          },
         });
       };
 
